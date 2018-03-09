@@ -1,2 +1,2 @@
 #!/bin/bash
-ifort -r8 utils_constants.f90 vandera.f90
+gfortran -fcheck=all -fbounds-check mod_kinds.F mod_scalars.F vandera.F 
