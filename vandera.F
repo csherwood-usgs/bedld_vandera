@@ -5,7 +5,6 @@
 !
       implicit none 
 
-      integer      :: wavecycle    
       real(r8) :: Hs, Td, depth, d50, d90
       real(r8) :: umag_curr, phi_curwave 
       real(r8) :: y, kh, uhat, ahat 
@@ -15,7 +14,7 @@
 !
       real(r8) :: r, phi, Su, Au
       real(r8) :: Sk, Ak
-      real(r8) :: T_cu, T_tu, T_t, T_c, umax, umin 
+      real(r8) :: T_cu, T_tu, T_t, T_c, umax, umin, RR
       real(r8) :: theta_c, theta_t, tau_wRe 
       real(r8) :: theta_cx, theta_cy, theta_tx, theta_ty
       real(r8) :: mag_theta_c, mag_theta_t
@@ -29,8 +28,12 @@
       real(r8) :: om_cc, om_tt, om_ct, om_tc
         
       real(r8) :: cff, cff1, cff2, cff3   
-      real(r8) :: smgd_3, bedld_c, bedld_t, bedld
+      real(r8) :: smgd_3
+      real(r8) :: bedld_cx, bedld_cy
+      real(r8) :: bedld_tx, bedld_ty
+      real(r8) :: bedld_x, bedld_y
      
+      real(r8) :: wavecycle 
       real(r8) :: rhos 
 !            
 !      Input wave parameters 
@@ -80,8 +83,7 @@
 !-----------------------------------------------------------------------
 ! 
             CALL abreu_points(r, phi, uhat, Sk, Ak, Td,  T_c, T_t,      &
-     &                                          T_cu, T_tu, umax, umin)
-
+     &                                    T_cu, T_tu, umax, umin, RR)
 !
 !-----------------------------------------------------------------------
 !           Crest half cycle
@@ -187,8 +189,10 @@
 !      Crest half cycle
 !-----------------------------------------------------------------------
 !
-        wavecycle=1
-        CALL sandload_vandera(wavecycle, d50, rhos, c_w,                &
+        wavecycle=1.0_r8
+        CALL sandload_vandera(wavecycle,                                &
+     &                              Hs, Td,  depth, RR,                 &
+     &                              d50, rhos, c_w,                     &
      &                              eta, dsf,                           &
      &                              T_c, T_cu, uhat_c, mag_theta_c,     &
      &                              om_cc, om_ct)
@@ -197,8 +201,10 @@
 !       Trough half cycle 
 !-----------------------------------------------------------------------
 !
-        wavecycle=-1
-        CALL sandload_vandera(wavecycle, d50, rhos, c_w,                &
+        wavecycle=-1.0_r8
+        CALL sandload_vandera(wavecycle,                                &
+     &                              Hs, Td,  depth, RR,                 &
+     &                              d50, rhos, c_w,                     &
      &                              eta, dsf,                           &
      &                              T_t, T_tu, uhat_t, mag_theta_t,     &
      &                              om_tt, om_tc)
@@ -210,33 +216,30 @@
 !
         smgd_3=sqrt((rhos/rho0-1.0_r8)*g*d50**3.0_r8)
 
-        cff1=T_c/(2.0_r8*T_cu)
+        cff1=0.5_r8*T_c/(T_cu)
         cff2=sqrt(mag_theta_c)*T_c*(om_cc+cff1*om_tc)
 !
         cff3=theta_cx/mag_theta_c
-!        bedld_cx=cff2*cff3
+        bedld_cx=cff2*cff3
 !
         cff3=theta_cy/mag_theta_c
-!        bedld_cy=cff2*cff3
+        bedld_cy=cff2*cff3
        
-        cff1=T_t/(2.0_r8*T_tu)
-        cff2=sqrt(mag_theta_t)*T_t*(om_tt+cff*om_ct)*cff2 
+        cff1=0.5_r8*T_t/(T_tu)
+        cff2=sqrt(mag_theta_t)*T_t*(om_tt+cff1*om_ct)*cff2 
 
-!        cff2=theta_tx/mag_theta_t      
-!        bedld_cx=cff2*cff3
+        cff2=theta_tx/mag_theta_t      
+        bedld_tx=cff2*cff3
 !
-!        cff3=theta_ty/mag_theta_c
-!        bedld_cy=cff2*cff3
+        cff3=theta_ty/mag_theta_t
+        bedld_ty=cff2*cff3
 
 !
 ! The units of these are m2 sec-1
 ! bed_frac, rhos multiplied 
 !
-!        bedld_x=bed_frac*rhos*smgd_3*(bedld_cx+bedld_tx)/Td 
-!
-! TSK-Check the units of this rhos
-!
-!        bedld=bed_frac*rhos*bedld_x
+        bedld_x=bed_frac*rhos*smgd_3*(bedld_cx+bedld_tx)/Td 
+        bedld_y=bed_frac*rhos*smgd_3*(bedld_cy+bedld_ty)/Td 
 
 
 !          END DO
@@ -244,7 +247,9 @@
 !     
         END PROGRAM VANDERA
  
-        SUBROUTINE sandload_vandera(wavecycle, d50, rhos, c_w,          &
+        SUBROUTINE sandload_vandera(wavecycle,                          &
+     &                              Hs, Td,  depth, RR,                 &
+     &                              d50, rhos, c_w,                     &
      &                              eta, dsf,                           &
      &                              T_i, T_iu, uhat_i, mag_theta_i,     &
      &                              om_ii, om_iy)
@@ -254,7 +259,8 @@
 
         implicit none 
 
-        integer,  intent(in) :: wavecycle 
+        real(r8), intent(in) :: wavecycle 
+        real(r8), intent(in) :: Hs, Td, depth, RR 
         real(r8), intent(in) :: d50, rhos, c_w
         real(r8), intent(in) :: eta, dsf
         real(r8), intent(in) :: T_i, T_iu
@@ -269,9 +275,10 @@
         real(r8) :: eps_eff
         real(r8) :: om_i
         real(r8) :: theta_ieff, theta_cr, theta_cr_calc 
-        real(r8) :: w_sc_eta, w_s, w_min_eta, w_min_dsf 
-        real(r8) :: w_sc_dsf, w_max_eta, w_max_dsf
-        real(r8) :: w_s_calc
+        real(r8) :: w_s, w_s_calc, w_sc, w_sc_calc
+        real(r8) :: w_sc_eta, w_sc_dsf
+        real(r8) :: w_min_eta, w_min_dsf
+        real(r8) :: w_max_eta, w_max_dsf
         real(r8) :: cff, cff1_eta, cff1_dsf
         real(r8) :: xi
         real(r8) :: P 
@@ -292,18 +299,22 @@
 ! Find settling velocity based on Soulsby (1997). 
 ! VA2012 Use 0.8*d50 for settling velocity (text under equation 28).
 !
-        w_s=w_s_calc(0.8_r8*d50, rhos)       
+        w_s=w_s_calc(0.8_r8*d50, rhos)    
 !
 ! VA2012 Equation 29, for crest cycle
 !
-        IF(wavecycle.eq.1) THEN 
+        IF(wavecycle.eq.1.0_r8) THEN 
+          w_min_eta=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, eta)
+          w_min_dsf=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, dsf)
           w_sc_eta=w_s-w_min_eta
           w_sc_dsf=w_s-w_min_dsf
         ENDIF 
 !
 ! VA2012 Equation 30, for trough cycle
 !
-        IF(wavecycle.eq.-1) THEN 
+        IF(wavecycle.eq.-1.0_r8) THEN 
+          w_max_eta=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, eta)
+          w_max_dsf=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, dsf)
           w_sc_eta=MAX(w_s-w_max_eta,0.0_r8)
           w_sc_dsf=MAX(w_s-w_max_dsf,0.0_r8)
         ENDIF 
@@ -341,6 +352,33 @@
         ENDIF
 !     
         END SUBROUTINE sandload_vandera
+!
+        REAL(r8) FUNCTION w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s,  &
+     &                                                            zws)
+! 
+!Second order Stokes theory to get vertical velocity of water particle
+! at a given elevation
+! TSK : Not sure about the origin of these equations 
+! 
+        USE mod_kinds
+        USE mod_scalars
+
+        implicit none 
+     
+        real(r8) :: wavecycle
+        real(r8) :: Hs, Td, depth, RR, zws, w_s
+        real(r8) :: worb1, worb2, worb
+         
+        worb1=pi*Hs*zws*depth/Td
+        worb2=worb1*2.0_r8*(RR+RR-1.0_r8)
+        worb=(1.0_r8/8.0_r8)*worb*sqrt(64.0_r8-(-worb+                  &
+     &        sqrt(worb**2.0_r8+32.0_r8*                                &
+     &        worb2**2.0_r8))**2.0_r8/(worb2**2.0_r8))+                 &
+     &        worb2*sin(2.0_r8*acos((1.0_r8/8.0_r8)*(-worb+             &
+     &        sqrt(worb**2.0_r8+32.0_r8*worb2**2.0_r8))/worb2))
+        w_sc_calc=MAX(0.0_r8,w_s+wavecycle*worb)
+        
+        END FUNCTION w_sc_calc
 !
         SUBROUTINE stress_progressive_surface_waves(d50, d90, osmgd,    &
      &                                        Td, depth,                &
@@ -825,7 +863,7 @@
         END SUBROUTINE skewness_params
 
         SUBROUTINE abreu_points(r, phi, Uw, Sk, Ak, T, DTc, DTt,        &
-     &                                      DTcu, DTtu, umax, umin)
+     &                                 DTcu, DTtu, umax, umin, RR)
 ! 
 !  Calculate umax, umin, and phases of asymmetrical wave orbital velocity 
 !
@@ -845,13 +883,13 @@
         real(r8), intent(in)  :: r, phi, Uw, T
         real(r8), intent(out) :: Sk, Ak
         real(r8), intent(out) :: Dtc, DTt, DTcu, DTtu 
-        real(r8), intent(out) :: umax, umin 
+        real(r8), intent(out) :: umax, umin, RR
 !
 ! Local variables 
 ! 
         real(r8) :: b, c, tmt, tmc, tzd, tzu
         real(r8) :: omega, w, phi_new 
-        real(r8) :: RR, P, F0, betar_0, beta
+        real(r8) :: P, F0, betar_0, beta
         real(r8) :: T_tu, T_cu, T_c, T_t 
         real(r8) :: cff1, cff2, cff 
 !
@@ -902,8 +940,7 @@
 ! 
 ! MD, equation 17
 !
-        RR=0.5_r8*(1.0_r8+b*SIN(phi_new))
-!
+        RR=0.5_r8*(1.0_r8+b*SIN(phi_new)) 
 ! 
 ! MD, under equation 18
 ! 
