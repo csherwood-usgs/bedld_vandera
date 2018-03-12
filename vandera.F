@@ -42,9 +42,9 @@
 !      depth=water depth(m)
 !   
        Hs = 2.0_r8
-       Td = 10.0_r8
+       Td = 7.5_r8
        depth =  10.0_r8
-       d50 = 0.15e-3
+       d50 = 0.25e-3
        d90 = 1.5_r8*d50 
        rhos= 2650.0_r8
 !
@@ -238,9 +238,10 @@
 ! The units of these are m2 sec-1
 ! bed_frac, rhos multiplied 
 !
+        bed_frac=1.0_r8
         bedld_x=bed_frac*rhos*smgd_3*(bedld_cx+bedld_tx)/Td 
         bedld_y=bed_frac*rhos*smgd_3*(bedld_cy+bedld_ty)/Td 
-
+        print*,bedld_y
 
 !          END DO
 !        END DO
@@ -364,20 +365,24 @@
         USE mod_scalars
 
         implicit none 
-     
+!     
         real(r8) :: wavecycle
         real(r8) :: Hs, Td, depth, RR, zws, w_s
         real(r8) :: worb1, worb2, worb
-         
+!         
         worb1=pi*Hs*zws*depth/Td
         worb2=worb1*2.0_r8*(RR+RR-1.0_r8)
+!
+!  Using the SANTOSS model formulation 
+!
         worb=(1.0_r8/8.0_r8)*worb*sqrt(64.0_r8-(-worb+                  &
      &        sqrt(worb**2.0_r8+32.0_r8*                                &
      &        worb2**2.0_r8))**2.0_r8/(worb2**2.0_r8))+                 &
      &        worb2*sin(2.0_r8*acos((1.0_r8/8.0_r8)*(-worb+             &
      &        sqrt(worb**2.0_r8+32.0_r8*worb2**2.0_r8))/worb2))
         w_sc_calc=MAX(0.0_r8,w_s+wavecycle*worb)
-        
+!
+        RETURN       
         END FUNCTION w_sc_calc
 !
         SUBROUTINE stress_progressive_surface_waves(d50, d90, osmgd,    &
@@ -406,7 +411,6 @@
 !
         integer  :: iter
         integer, parameter :: total_iters=50
-        real(r8) :: d50_mm, d90_mm
         real(r8) :: mu, mu_calc 
         real(r8) :: theta_timeavg_old, theta_timeavg, theta_hat_i
 
@@ -424,12 +428,6 @@
 ! VA2013 Apendix A, Shields parameter (Stress) depends on bed roughness 
 ! Bed roughness computed from converged Shields parameter
 !
-!
-! Bed roughness factor based on grain size
-!
-        d50_mm=d50*0.001_r8  ! convert m to mm
-        d90_mm=d90*0.001_r8  ! convert m to mm
-!        
 ! Maximum mobility number at crest and trough 
 ! For irregular waves, use Rayleigh distributed maximum value
 ! VA, text under equation Appendix B.4 
@@ -438,7 +436,8 @@
 !
 ! Use Appendix B eqn B.1 and B.2 to get ripple height and length 
 !   
-        CALL ripple_dim(psi, d50_mm, eta, lambda)
+        CALL ripple_dim(psi, d50, eta, lambda)
+!
         eta=eta*ahat
         lambda=lambda*ahat
 
@@ -456,7 +455,7 @@
 ! 
 ! Calculate current-related bed roughness from VA2013 Appendix A.1
 !
-          ksd=ksd_calc(d50, d90, mu_calc(d50_mm), theta_timeavg,        &
+          ksd=ksd_calc(d50, d90, mu_calc(d50), theta_timeavg,           &
      &                                                  eta, lambda)    
 !
 ! Calculate full-cycle current friction factor from VA2013 Eqn. 20
@@ -465,7 +464,7 @@
 ! 
 ! Calculate wave related bed roughness from VA2013 A.5     
 ! 
-          ksw=ksw_calc(d50, mu_calc(d50_mm), theta_timeavg, eta, lambda)
+          ksw=ksw_calc(d50, mu_calc(d50), theta_timeavg, eta, lambda)
 !
 ! Calculate full-cycle wave friction factor VA2013 Appendix Eqn. A.4 
 !
@@ -506,7 +505,7 @@
 !
 ! Calculate current-related bed roughness from VA2013 Appendix A.1
 !
-          ksd=ksd_calc(d50, d90, mu_calc(d50_mm), theta_timeavg,        &
+          ksd=ksd_calc(d50, d90, mu_calc(d50), theta_timeavg,           &
      &                                                  eta, lambda)    
 !
 ! Calculate full-cycle current friction factor from VA2013 Eqn. 20
@@ -515,7 +514,7 @@
 ! 
 ! Calculate wave related bed roughness from VA2013 A.5     
 ! 
-          ksw=ksw_calc(d50, mu_calc(d50_mm), theta_timeavg, eta, lambda)
+          ksw=ksw_calc(d50, mu_calc(d50), theta_timeavg, eta, lambda)
 !
 ! Calculate full-cycle wave friction factor VA2013 Appendix Eqn. A.4 
 !
@@ -549,7 +548,7 @@
         
         END SUBROUTINE stress_progressive_surface_waves 
 !
-        SUBROUTINE ripple_dim(psi, d50_mm, eta, lambda)
+        SUBROUTINE ripple_dim(psi, d50, eta, lambda)
 !
 ! Calculate ripple dimensions of O'Donoghue et al. 2006
 ! based on VA2013 Appendix B
@@ -560,11 +559,13 @@
 
         implicit none 
 !
-        real(r8), intent(in)  :: psi, d50_mm
+        real(r8), intent(in)  :: psi, d50
         real(r8), intent(out) :: eta, lambda
 !
+        real(r8) :: d50_mm 
         real(r8) :: m_eta, m_lambda, n_eta, n_lambda 
-!
+!       
+        d50_mm=0.001_r8*d50
         IF(d50_mm.lt.0.22_r8) THEN
           m_eta=0.55_r8
           m_lambda=0.73_r8
@@ -639,7 +640,7 @@
         RETURN
         END FUNCTION 
 !
-        REAL(r8) FUNCTION mu_calc(d50_mm)
+        REAL(r8) FUNCTION mu_calc(d50)
 !
 ! Calculate bed roughness factor based on grain size
 ! VA2013 Appendix A., required for current related bed roughness
@@ -650,7 +651,9 @@
 !
         implicit none 
 !
-        real(r8) :: d50_mm
+        real(r8) :: d50, d50_mm
+!
+        d50_mm=d50*0.001_r8 
 !
         IF(d50_mm.le.0.15_r8) THEN
           mu_calc=6.0_r8
@@ -661,7 +664,7 @@
         ENDIF
 !
         RETURN
-        END FUNCTION
+        END FUNCTION mu_calc
 !
         REAL(r8) FUNCTION ksd_calc(d50, d90, mu, theta_timeavg,         &
      &                         eta, lambda)
@@ -866,8 +869,6 @@
      &                                 DTcu, DTtu, umax, umin, RR)
 ! 
 !  Calculate umax, umin, and phases of asymmetrical wave orbital velocity 
-!
-! TSK: Why calling it abreu if all equations from Malarkey
 !
 !  Use the asymmetry parameters from Ruessink et al, 2012
 !  to get the umax, umin and phases of asymettrical wave 
