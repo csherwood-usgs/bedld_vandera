@@ -42,9 +42,9 @@
 !      depth=water depth(m)
 !   
        Hs = 2.0_r8
-       Td = 7.5_r8
+       Td = 10.0_r8
        depth =  10.0_r8
-       d50 = 0.25e-3
+       d50 = 0.15e-3
        d90 = 1.5_r8*d50 
        rhos= 2650.0_r8
 !
@@ -75,14 +75,14 @@
 ! COMMON TO both crest and trough
 !-----------------------------------------------------------------------
 !
-            CALL skewness_params(Hs, Td, depth, r, phi, Su, Au)
+            CALL skewness_params(Hs, Td, depth, r, phi)
 !        
 !-----------------------------------------------------------------------
 ! Abreu et al. use skewness params to get representative critical orbital
 ! velocity for crest and trough cycles , get r and phi from above
 !-----------------------------------------------------------------------
 ! 
-            CALL abreu_points(r, phi, uhat, Sk, Ak, Td,  T_c, T_t,      &
+            CALL abreu_points(r, phi, uhat, Td,  T_c, T_t,              &
      &                                    T_cu, T_tu, umax, umin, RR)
 !
 !-----------------------------------------------------------------------
@@ -154,8 +154,6 @@
          theta_cx=ABS(mag_theta_c)*uc_rx/(mag_uc)+tau_wRe*osmgd/rho0
          theta_cy=ABS(mag_theta_c)*uc_ry/(mag_uc)
          mag_theta_c=sqrt(theta_cx*theta_cx+theta_cy*theta_cy)
-         print*, "theta_cx",theta_cx
-         print*, "theta_cy",theta_cy
         
 !    
 !-----------------------------------------------------------------------
@@ -175,11 +173,9 @@
 ! rho0 is required for non-dimensionalizing 
 !-----------------------------------------------------------------------
 !
-         theta_tx=ABS(theta_t)*ut_rx/(mag_ut)+tau_wRe*osmgd/rho0
-         theta_ty=ABS(theta_t)*ut_ry/(mag_ut)
+         theta_tx=ABS(mag_theta_t)*ut_rx/(mag_ut)+tau_wRe*osmgd/rho0
+         theta_ty=ABS(mag_theta_t)*ut_ry/(mag_ut)
          mag_theta_t=sqrt(theta_tx*theta_tx+theta_ty*theta_ty)
-         print*, "theta_tx",theta_tx
-         print*, "theta_ty",theta_tx
 !
 !-----------------------------------------------------------------------
 ! 3. Compute sediment load entrained during each crest half cycle
@@ -215,7 +211,7 @@
 !-----------------------------------------------------------------------
 !
         smgd_3=sqrt((rhos/rho0-1.0_r8)*g*d50**3.0_r8)
-
+!        
         cff1=0.5_r8*T_c/(T_cu)
         cff2=sqrt(mag_theta_c)*T_c*(om_cc+cff1*om_tc)
 !
@@ -224,16 +220,15 @@
 !
         cff3=theta_cy/mag_theta_c
         bedld_cy=cff2*cff3
-       
+ 
         cff1=0.5_r8*T_t/(T_tu)
-        cff2=sqrt(mag_theta_t)*T_t*(om_tt+cff1*om_ct)*cff2 
+        cff2=sqrt(mag_theta_t)*T_t*(om_tt+cff1*om_ct)
 
-        cff2=theta_tx/mag_theta_t      
+        cff3=theta_tx/mag_theta_t      
         bedld_tx=cff2*cff3
 !
         cff3=theta_ty/mag_theta_t
         bedld_ty=cff2*cff3
-
 !
 ! The units of these are m2 sec-1
 ! bed_frac, rhos multiplied 
@@ -241,7 +236,6 @@
         bed_frac=1.0_r8
         bedld_x=bed_frac*rhos*smgd_3*(bedld_cx+bedld_tx)/Td 
         bedld_y=bed_frac*rhos*smgd_3*(bedld_cy+bedld_ty)/Td 
-        print*,bedld_y
 
 !          END DO
 !        END DO
@@ -270,61 +264,49 @@
 
         ! local variables
 ! 
-! VA2012 Text under equation 37
+! VA2013 Text under equation 37
 ! 
         real(r8), parameter :: m=11.0_r8, n=1.2_r8, alpha=8.2_r8
+        real(r8), parameter :: xi=1.7_r8 ! Based on Santoss_core.m
         real(r8) :: eps_eff
         real(r8) :: om_i
         real(r8) :: theta_ieff, theta_cr, theta_cr_calc 
-        real(r8) :: w_s, w_s_calc, w_sc, w_sc_calc
+        real(r8) :: w_s, w_s_calc
+        real(r8) :: ws_eta, ws_dsf, w_sc_calc
         real(r8) :: w_sc_eta, w_sc_dsf
-        real(r8) :: w_min_eta, w_min_dsf
-        real(r8) :: w_max_eta, w_max_dsf
         real(r8) :: cff, cff1_eta, cff1_dsf
-        real(r8) :: xi
         real(r8) :: P 
 !
-        eps_eff=(dsf/d50)**0.25_r8 
-        theta_ieff=eps_eff*mag_theta_i
-! 
-! Find critical Shields parameters based on Soulsby (1997).
-!
-        theta_cr=theta_cr_calc(0.8_r8*d50, rhos)
-        
-        IF(theta_ieff.le.theta_cr) THEN 
-          om_i=0.0_r8
-        ELSE
-          om_i=m*(theta_ieff-theta_cr)
-        ENDIF 
 ! 
 ! Find settling velocity based on Soulsby (1997). 
-! VA2012 Use 0.8*d50 for settling velocity (text under equation 28).
+! VA2013 Use 0.8*d50 for settling velocity (text under equation 28).
 !
         w_s=w_s_calc(0.8_r8*d50, rhos)    
 !
-! VA2012 Equation 29, for crest cycle
+! VA2013 Equation 29, for crest cycle
 !
+        ws_eta=w_sc_calc(Hs, Td, depth, RR, w_s, eta)
+        ws_dsf=w_sc_calc(Hs, Td, depth, RR, w_s, dsf)
         IF(wavecycle.eq.1.0_r8) THEN 
-          w_min_eta=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, eta)
-          w_min_dsf=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, dsf)
-          w_sc_eta=w_s-w_min_eta
-          w_sc_dsf=w_s-w_min_dsf
+          w_sc_eta=MAX(w_s+ws_eta,0.0_r8)
+          w_sc_dsf=MAX(w_s+ws_dsf,0.0_r8)
         ENDIF 
 !
-! VA2012 Equation 30, for trough cycle
+! VA2013 Equation 30, for trough cycle
 !
         IF(wavecycle.eq.-1.0_r8) THEN 
-          w_max_eta=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, eta)
-          w_max_dsf=w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s, dsf)
-          w_sc_eta=MAX(w_s-w_max_eta,0.0_r8)
-          w_sc_dsf=MAX(w_s-w_max_dsf,0.0_r8)
+          w_sc_eta=MAX(w_s-ws_eta,0.0_r8)
+          w_sc_dsf=MAX(w_s-ws_dsf,0.0_r8)
         ENDIF 
 !
-! VA2012 Equation 33, Phase lag parameter
+! VA2013 Equation 33, Phase lag parameter
 !
+          
         cff=(1.0_r8-wavecycle*xi*uhat_i)/c_w
         cff1_eta=(1.0_r8/(2.0_r8*(T_i-T_iu)*w_sc_eta))
         cff1_dsf=(1.0_r8/(2.0_r8*(T_i-T_iu)*w_sc_dsf))
+!        cff1_eta=(1.0_r8/(2.0_r8*(T_iu)*w_sc_eta))
+!        cff1_dsf=(1.0_r8/(2.0_r8*(T_iu)*w_sc_dsf))
 !
 ! For ripple regime 
 !
@@ -337,50 +319,58 @@
           P=alpha*dsf*cff*cff1_dsf
         ENDIF 
 !
-! VA2012 Equation 23-26, Sandload entrained during half cycle 
+        eps_eff=(dsf/d50)**0.25_r8 
+        theta_ieff=eps_eff*mag_theta_i
 ! 
+! Find critical Shields parameters based on Soulsby (1997).
+!
+        theta_cr=theta_cr_calc(d50, rhos)
+!
+! Sand load entrained in the flow during each half-cycle
+!
+        om_i=MAX(m*(theta_ieff-theta_cr)**n,0.0_r8)
+!
+! VA2013 Equation 23-26, Sandload entrained during half cycle 
+! 
+       
         IF(P.le.1.0_r8) THEN 
           om_ii=om_i
+          om_iy=0.0_r8
         ELSE
           om_ii=om_i/P 
-        ENDIF 
-!
-        IF(P.le.1.0_r8) THEN 
-          om_iy=0.0_r8
-        ELSE 
           cff=1.0_r8/P
           om_iy=om_i*(1.0_r8-cff) 
-        ENDIF
-!     
+        ENDIF 
+!
+        RETURN 
         END SUBROUTINE sandload_vandera
 !
-        REAL(r8) FUNCTION w_sc_calc(wavecycle, Hs, Td, depth, RR, w_s,  &
-     &                                                            zws)
+        REAL(r8) FUNCTION w_sc_calc(Hs, Td, depth, RR, w_s, zws)
 ! 
-!Second order Stokes theory to get vertical velocity of water particle
-! at a given elevation
-! TSK : Not sure about the origin of these equations 
+! Second order Stokes theory to get vertical velocity of water particle
+! at a given elevation based on santoss_core.m
 ! 
         USE mod_kinds
         USE mod_scalars
 
         implicit none 
 !     
-        real(r8) :: wavecycle
         real(r8) :: Hs, Td, depth, RR, zws, w_s
-        real(r8) :: worb1, worb2, worb
-!         
-        worb1=pi*Hs*zws*depth/Td
+        real(r8) :: cff, worb1, worb2, worb
+!        
+        worb1=pi*Hs*zws/(Td*depth)
         worb2=worb1*2.0_r8*(RR+RR-1.0_r8)
 !
 !  Using the SANTOSS model formulation 
+! 
+        cff=1.0_r8/8.0_r8
+        worb=cff*worb1*SQRT(64.0_r8-(-worb1+                            &
+     &          SQRT(worb1**2.0_r8+32.0_r8*                             &
+     &               worb2**2.0_r8))**2.0_r8/(worb2**2.0_r8))+          &
+     &               worb2*SIN(2.0_r8*ACOS(cff*(-worb1+                 &
+     &          SQRT(worb1**2.0_r8+32.0_r8*worb2**2.0_r8))/worb2))
 !
-        worb=(1.0_r8/8.0_r8)*worb*sqrt(64.0_r8-(-worb+                  &
-     &        sqrt(worb**2.0_r8+32.0_r8*                                &
-     &        worb2**2.0_r8))**2.0_r8/(worb2**2.0_r8))+                 &
-     &        worb2*sin(2.0_r8*acos((1.0_r8/8.0_r8)*(-worb+             &
-     &        sqrt(worb**2.0_r8+32.0_r8*worb2**2.0_r8))/worb2))
-        w_sc_calc=MAX(0.0_r8,w_s+wavecycle*worb)
+        w_sc_calc=worb
 !
         RETURN       
         END FUNCTION w_sc_calc
@@ -399,7 +389,6 @@
 !  
 ! Input the crest or trough half cycle velocity
 ! d50 -- grain size in meters
-! TSK ---> eta, lambda are ripple height and length (should we compute them)
 ! Different for crest and trough half cycles 
 !       
         real(r8), intent(in) :: d50, d90, osmgd
@@ -798,7 +787,7 @@
 !
 !  End of functions for step 2 for Shear stress formulation
 !
-        SUBROUTINE skewness_params(H_s, T, depth, r, phi, Su, Au)
+        SUBROUTINE skewness_params(H_s, T, depth, r, phi)
 !        
 ! Ruessink et al. provides equations for calculating skewness parameters
 ! Uses Malarkey and Davies equations to get "bb" and "r"
@@ -815,7 +804,7 @@
         implicit none 
 !
         real(r8), intent(in)  :: H_s, T, depth
-        real(r8), intent(out) :: r, phi, Su, Au
+        real(r8), intent(out) :: r, phi
 !
 ! Local variables 
 ! 
@@ -829,6 +818,7 @@
         real(r8) :: B, psi, bb 
         real(r8) :: k, kh, cff
         real(r8) :: kh_calc 
+        real(r8) :: Su, Au
 !
 ! Ruessink et al., 2012, Coastal Engineering 65:56-63.
 !
@@ -865,7 +855,7 @@
         RETURN     
         END SUBROUTINE skewness_params
 
-        SUBROUTINE abreu_points(r, phi, Uw, Sk, Ak, T, DTc, DTt,        &
+        SUBROUTINE abreu_points(r, phi, Uw, T, DTc, DTt,                &
      &                                 DTcu, DTtu, umax, umin, RR)
 ! 
 !  Calculate umax, umin, and phases of asymmetrical wave orbital velocity 
@@ -882,7 +872,6 @@
         implicit none 
 !
         real(r8), intent(in)  :: r, phi, Uw, T
-        real(r8), intent(out) :: Sk, Ak
         real(r8), intent(out) :: Dtc, DTt, DTcu, DTtu 
         real(r8), intent(out) :: umax, umin, RR
 !
@@ -893,6 +882,7 @@
         real(r8) :: P, F0, betar_0, beta
         real(r8) :: T_tu, T_cu, T_c, T_t 
         real(r8) :: cff1, cff2, cff 
+        real(r8) :: Sk, Ak
 !
         omega=2.0_r8*pi/T
 !
@@ -1008,8 +998,6 @@
 !
         omega=2.0_r8*pi/Td
         x=omega**2.0_r8*depth/g
-!
-!TSK Double check the conditional
 ! 
         IF(x.lt.1.0_r8) THEN
           y=SQRT(x)
