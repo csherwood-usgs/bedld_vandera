@@ -910,7 +910,7 @@
         IF(tmt.lt.0.0_r8) THEN 
           tmt=tmt+2.0_r8*pi
         ENDIF 
-        IF(tmt.lt.0.0_r8) THEN 
+        IF(tmc.lt.0.0_r8) THEN 
           tmc=tmc+2.0_r8*pi
         ENDIF
 ! 
