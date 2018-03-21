@@ -16,18 +16,20 @@
       real(r8) :: r, phi, Su, Au
       real(r8) :: Sk, Ak
       real(r8) :: T_cu, T_tu, T_t, T_c, umax, umin, RR
-      real(r8) :: theta_c, theta_t, tau_wRe 
-      real(r8) :: theta_cx, theta_cy, theta_tx, theta_ty
-      real(r8) :: mag_theta_c, mag_theta_t
-
-      real(r8) :: eta, dsf                
+!
       real(r8) :: uc_r, ut_r, uhat_c, uhat_t
       real(r8) :: uc_rx, uc_ry, alpha
       real(r8) :: ut_rx, ut_ry, Rcheck
       real(r8) :: mag_uc, mag_ut 
-
+!
+      real(r8) :: eta_c, dsf_c                
+      real(r8) :: eta_t, dsf_t               
+      real(r8) :: theta_c, theta_t, tau_wRe 
+      real(r8) :: theta_cx, theta_cy, theta_tx, theta_ty
+      real(r8) :: mag_theta_c, mag_theta_t
+!
       real(r8) :: om_cc, om_tt, om_ct, om_tc
-        
+!        
       real(r8) :: cff, cff1, cff2, cff3   
       real(r8) :: smgd_3
       real(r8) :: bedld_cx, bedld_cy
@@ -164,7 +166,7 @@
      &                                        Td, depth,                &
      &                                   umag_curr, uhat, uhat_c, ahat, &
      &                                        T_cu, T_c, mag_uc,        &
-     &                                        eta, dsf,                 &
+     &                                        eta_c, dsf_c,             &
      &                                        mag_theta_c, tau_wRe) 
 
 !
@@ -183,8 +185,8 @@
       write(iunit,*) "Wave Reynolds Stress tau_wRe", tau_wRe
       write(iunit,*) "Shields par. x,y dir", theta_cx, theta_cy
       write(iunit,*) "Magnitude of Shields par.", mag_theta_c
-      write(iunit,*) "Ripple height (m)", eta
-      write(iunit,*) "Sheet flow thickness (m)", dsf
+      write(iunit,*) "Ripple height (m)", eta_c
+      write(iunit,*) "Sheet flow thickness (m)", dsf_c
       write(iunit,*)"****************************************"
 !    
 !-----------------------------------------------------------------------
@@ -196,7 +198,7 @@
      &                                        Td, depth,                &
      &                                   umag_curr, uhat, uhat_t, ahat, &
      &                                        T_tu, T_t, mag_ut,        &
-     &                                        eta, dsf,                 &
+     &                                        eta_t, dsf_t,             &
      &                                       mag_theta_t, tau_wRe) 
 !
 !-----------------------------------------------------------------------
@@ -214,8 +216,8 @@
       write(iunit,*) "Wave Reynolds Stress tau_wRe",tau_wRe
       write(iunit,*) "Shields par. x,y dir", theta_tx, theta_ty
       write(iunit,*) "Magnitude of Shields par.", mag_theta_t
-      write(iunit,*) "Ripple height (m)", eta
-      write(iunit,*) "Sheet flow thickness (m)", dsf
+      write(iunit,*) "Ripple height (m)", eta_t
+      write(iunit,*) "Sheet flow thickness (m)", dsf_t
       write(iunit,*)"****************************************"
 !
 !-----------------------------------------------------------------------
@@ -230,7 +232,7 @@
        CALL sandload_vandera(iunit, wavecycle,                          &
      &                              Hs, Td,  depth, RR,                 &
      &                              d50, rhos, c_w,                     &
-     &                              eta, dsf,                           &
+     &                              eta_c, dsf_c,                       &
      &                              T_c, T_cu, uhat_c, mag_theta_c,     &
      &                              om_cc, om_ct)
 !
@@ -242,7 +244,7 @@
        CALL sandload_vandera(iunit, wavecycle,                          &
      &                              Hs, Td,  depth, RR,                 &
      &                              d50, rhos, c_w,                     &
-     &                              eta, dsf,                           &
+     &                              eta_t, dsf_t,                       &
      &                              T_t, T_tu, uhat_t, mag_theta_t,     &
      &                              om_tt, om_tc)
 !
@@ -496,6 +498,7 @@
 ! Initiliaze with theta_timeavg=0 and theta_hat_i=theta_timeavg
 !
         theta_timeavg=0.0_r8
+        theta_timeavg_old=0.0_r8
         theta_hat_i=theta_timeavg
         DO iter=1,total_iters
 !
