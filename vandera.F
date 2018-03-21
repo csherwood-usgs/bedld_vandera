@@ -5,6 +5,7 @@
 !
       implicit none 
 
+      integer  :: iunit
       real(r8) :: Hs, Td, depth, d50, d90
       real(r8) :: umag_curr, phi_curwave 
       real(r8) :: y, kh, uhat, ahat 
@@ -35,6 +36,7 @@
      
       real(r8) :: wavecycle 
       real(r8) :: rhos 
+
 !            
 !      Input wave parameters 
 !      Hs=significant wave height
@@ -53,20 +55,32 @@
 !
        umag_curr=ABS(0.5_r8)
        phi_curwave=45.0_r8*deg2rad
-
 !
 ! uhat and ahat for the entire wave cycle  uhat is the wave orbital velocity defiend for the entire wave cycle
-! TSK --. HARDWIRED for now but later needs to be based on a function for JONSWAP spectrum 
+!
        uhat=0.5472_r8           
 !
        ahat=uhat*Td/(2.0_r8*pi)
        k=kh(Td,depth)/depth     ! Wave number 
        c_w=2*pi/(k*Td)          ! Wave speed
-!
-! Do loops to be added later for COAWST 
-!        DO j=Jstrm1,Jendp1
-!          DO i=Istrm1,Iendp1
 
+! 
+! Open the file to write code output
+!
+      open(iunit,file='vandera_output.dat',form='formatted')
+      write(iunit,*)"****************************************"
+      write(iunit,*)"Write input data"
+      write(iunit,*)"****************************************"
+      write(iunit,*) "Signfcnt wave height(m)=", Hs 
+      write(iunit,*) "Surface wave period(s)=", Td 
+      write(iunit,*) "Water depth(m)=", Depth
+      write(iunit,*) "Current velocity(m/s)=", umag_curr
+      write(iunit,*) "Current dir(degrees)=",phi_curwave*rad2deg
+      write(iunit,*) "Sediment d50(m)=", d50
+      write(iunit,*)"****************************************"
+      write(iunit,*)"Write output data"
+      write(iunit,*)"****************************************"
+!
 ! VA-2013 equation 1 is solved in 3 sub-steps
 !
 !-----------------------------------------------------------------------
@@ -75,14 +89,14 @@
 ! COMMON TO both crest and trough
 !-----------------------------------------------------------------------
 !
-            CALL skewness_params(Hs, Td, depth, r, phi)
+       CALL skewness_params(iunit, Hs, Td, depth, r, phi)
 !        
 !-----------------------------------------------------------------------
 ! Abreu et al. use skewness params to get representative critical orbital
 ! velocity for crest and trough cycles , get r and phi from above
 !-----------------------------------------------------------------------
 ! 
-            CALL abreu_points(r, phi, uhat, Td,  T_c, T_t,              &
+       CALL abreu_points(iunit, r, phi, uhat, Td,  T_c, T_t,            &
      &                                    T_cu, T_tu, umax, umin, RR)
 !
 !-----------------------------------------------------------------------
@@ -93,21 +107,20 @@
 !-----------------------------------------------------------------------
 !
 ! from Abreu points 
-            uhat_c=umax
-            uhat_t=-umin 
+!
+       uhat_c=umax
+       uhat_t=-umin 
 !
 !-----------------------------------------------------------------------
 ! VA2013 Equation 10, 11
 !-----------------------------------------------------------------------
 !
-            uc_r=0.5_r8*sqrt(2.0_r8)*uhat_c
-            ut_r=0.5_r8*sqrt(2.0_r8)*uhat_t
+       uc_r=0.5_r8*sqrt(2.0_r8)*uhat_c
+       ut_r=0.5_r8*sqrt(2.0_r8)*uhat_t
 
-            uc_rx=uc_r+umag_curr*cos(phi_curwave)
-            uc_ry=umag_curr*sin(phi_curwave)
-            mag_uc=sqrt(uc_rx*uc_rx+uc_ry*uc_ry)
-            print*, "crest vel.",uc_rx, uc_ry
-!            alpha=umag_wave/(umag_wave+uhat)
+       uc_rx=uc_r+umag_curr*cos(phi_curwave)
+       uc_ry=umag_curr*sin(phi_curwave)
+       mag_uc=sqrt(uc_rx*uc_rx+uc_ry*uc_ry)
 ! 
 !-----------------------------------------------------------------------
 !           Trough half cycle
@@ -116,16 +129,25 @@
 !    as well as full cycle orbital velocity and excursion 
 !-----------------------------------------------------------------------
 !
-            ut_rx=-ut_r+umag_curr*cos(phi_curwave)
-            ut_ry=umag_curr*sin(phi_curwave)
-            mag_ut=sqrt(ut_rx*ut_rx+ut_ry*ut_ry)
-            print*, "trough vel.", ut_rx, ut_ry
+       ut_rx=-ut_r+umag_curr*cos(phi_curwave)
+       ut_ry=umag_curr*sin(phi_curwave)
+       mag_ut=sqrt(ut_rx*ut_rx+ut_ry*ut_ry)
 !
-! Need to chekc velocity skewnes parameter
+! Need to check velocity skewnes parameter
 !
-            Rcheck = uhat_c/(uhat_c+uhat_t)
-!            print*, "Rcheck",Rcheck
-!            alpha=umag_wave/(umag_wave+uhat)
+       Rcheck = uhat_c/(uhat_c+uhat_t)
+!
+!------------------------------------------------------------------------
+! Writing out the output from this file
+!------------------------------------------------------------------------
+!
+      write(iunit,*)"****************************************"
+      write(iunit,*)"1. Representative velocity for each half"
+      write(iunit,*)"****************************************"
+      write(iunit,*) "Crest Velocity in x and y dir.", uc_rx, uc_ry  
+      write(iunit,*) "Trough Velocity in x and y dir.",ut_rx, ut_ry  
+      write(iunit,*) "Skewness parameter check", Rcheck
+      write(iunit,*)"****************************************"
 !
 !-----------------------------------------------------------------------
 ! 2. Bed shear stress (Shields parameter) for Crest half cycle 
@@ -133,12 +155,12 @@
 !-----------------------------------------------------------------------
 ! TSK    smgd=(Srho(ised,ng)/rho0-1.0_r8)*g*sd50(ised,ng)
 !
-           smgd=(rhos/rho0-1.0_r8)*g*d50
-           osmgd=1.0_r8/smgd
+       smgd=(rhos/rho0-1.0_r8)*g*d50
+       osmgd=1.0_r8/smgd
 ! 
 ! TSK- Think about are multiple sediments 
 ! 
-         CALL stress_progressive_surface_waves(d50, d90, osmgd,         &
+       CALL stress_progressive_surface_waves(d50, d90, osmgd,           &
      &                                        Td, depth,                &
      &                                   umag_curr, uhat, uhat_c, ahat, &
      &                                        T_cu, T_c, mag_uc,        &
@@ -151,17 +173,26 @@
 ! rho0 is required for non-dimensionalizing 
 !-----------------------------------------------------------------------
 !
-         theta_cx=ABS(mag_theta_c)*uc_rx/(mag_uc)+tau_wRe*osmgd/rho0
-         theta_cy=ABS(mag_theta_c)*uc_ry/(mag_uc)
-         mag_theta_c=sqrt(theta_cx*theta_cx+theta_cy*theta_cy)
+      theta_cx=ABS(mag_theta_c)*uc_rx/(mag_uc)+tau_wRe*osmgd/rho0
+      theta_cy=ABS(mag_theta_c)*uc_ry/(mag_uc)
+      mag_theta_c=sqrt(theta_cx*theta_cx+theta_cy*theta_cy)
         
+      write(iunit,*)"****************************************"
+      write(iunit,*)"2. CREST cycle - Bed shear stress output"
+      write(iunit,*)"****************************************"
+      write(iunit,*) "Wave Reynolds Stress tau_wRe", tau_wRe
+      write(iunit,*) "Shields par. x,y dir", theta_cx, theta_cy
+      write(iunit,*) "Magnitude of Shields par.", mag_theta_c
+      write(iunit,*) "Ripple height (m)", eta
+      write(iunit,*) "Sheet flow thickness (m)", dsf
+      write(iunit,*)"****************************************"
 !    
 !-----------------------------------------------------------------------
 ! 2. Bed shear stress (Shields parameter) for Trough half cycle 
 !    alpha VA2013 Eqn. 19  
 !-----------------------------------------------------------------------
 !
-         CALL stress_progressive_surface_waves(d50, d90, osmgd,         &
+      CALL stress_progressive_surface_waves(d50, d90, osmgd,            &
      &                                        Td, depth,                &
      &                                   umag_curr, uhat, uhat_t, ahat, &
      &                                        T_tu, T_t, mag_ut,        &
@@ -173,9 +204,19 @@
 ! rho0 is required for non-dimensionalizing 
 !-----------------------------------------------------------------------
 !
-         theta_tx=ABS(mag_theta_t)*ut_rx/(mag_ut)+tau_wRe*osmgd/rho0
-         theta_ty=ABS(mag_theta_t)*ut_ry/(mag_ut)
-         mag_theta_t=sqrt(theta_tx*theta_tx+theta_ty*theta_ty)
+      theta_tx=ABS(mag_theta_t)*ut_rx/(mag_ut)+tau_wRe*osmgd/rho0
+      theta_ty=ABS(mag_theta_t)*ut_ry/(mag_ut)
+      mag_theta_t=sqrt(theta_tx*theta_tx+theta_ty*theta_ty)
+!
+      write(iunit,*)"****************************************"
+      write(iunit,*)"2.TROUGH cycle - Bed shear stress output"
+      write(iunit,*)"****************************************"
+      write(iunit,*) "Wave Reynolds Stress tau_wRe",tau_wRe
+      write(iunit,*) "Shields par. x,y dir", theta_tx, theta_ty
+      write(iunit,*) "Magnitude of Shields par.", mag_theta_t
+      write(iunit,*) "Ripple height (m)", eta
+      write(iunit,*) "Sheet flow thickness (m)", dsf
+      write(iunit,*)"****************************************"
 !
 !-----------------------------------------------------------------------
 ! 3. Compute sediment load entrained during each crest half cycle
@@ -185,8 +226,8 @@
 !      Crest half cycle
 !-----------------------------------------------------------------------
 !
-        wavecycle=1.0_r8
-        CALL sandload_vandera(wavecycle,                                &
+       wavecycle=1.0_r8
+       CALL sandload_vandera(iunit, wavecycle,                          &
      &                              Hs, Td,  depth, RR,                 &
      &                              d50, rhos, c_w,                     &
      &                              eta, dsf,                           &
@@ -197,8 +238,8 @@
 !       Trough half cycle 
 !-----------------------------------------------------------------------
 !
-        wavecycle=-1.0_r8
-        CALL sandload_vandera(wavecycle,                                &
+       wavecycle=-1.0_r8
+       CALL sandload_vandera(iunit, wavecycle,                          &
      &                              Hs, Td,  depth, RR,                 &
      &                              d50, rhos, c_w,                     &
      &                              eta, dsf,                           &
@@ -236,13 +277,15 @@
         bed_frac=1.0_r8
         bedld_x=bed_frac*rhos*smgd_3*(bedld_cx+bedld_tx)/Td 
         bedld_y=bed_frac*rhos*smgd_3*(bedld_cy+bedld_ty)/Td 
-
-!          END DO
-!        END DO
-!     
+!
+        write(iunit,*)"****************************************"
+        write(iunit,*)"Net transport rate in x dir.", bedld_x
+        write(iunit,*)"Net transport rate in y dir.", bedld_y
+        write(iunit,*)"****************************************"
+        close(iunit)
         END PROGRAM VANDERA
  
-        SUBROUTINE sandload_vandera(wavecycle,                          &
+        SUBROUTINE sandload_vandera(iunit, wavecycle,                   &
      &                              Hs, Td,  depth, RR,                 &
      &                              d50, rhos, c_w,                     &
      &                              eta, dsf,                           &
@@ -254,6 +297,7 @@
 
         implicit none 
 
+        integer, intent(in)  :: iunit 
         real(r8), intent(in) :: wavecycle 
         real(r8), intent(in) :: Hs, Td, depth, RR 
         real(r8), intent(in) :: d50, rhos, c_w
@@ -276,7 +320,6 @@
         real(r8) :: w_sc_eta, w_sc_dsf
         real(r8) :: cff, cff1_eta, cff1_dsf
         real(r8) :: P 
-!
 ! 
 ! Find settling velocity based on Soulsby (1997). 
 ! VA2013 Use 0.8*d50 for settling velocity (text under equation 28).
@@ -342,6 +385,24 @@
           om_iy=om_i*(1.0_r8-cff) 
         ENDIF 
 !
+        IF(wavecycle.eq.1.0_r8) THEN 
+          write(iunit,*)"****************************************"
+          write(iunit,*)"3. Sand load calculations"
+          write(iunit,*)"****************************************"
+          write(iunit,*)"Crest cycle"
+          write(iunit,*)"****************************************"
+          write(iunit,*)"Phase lag parameter", P
+          write(iunit,*)"O_cc (sandload entrained and carried)", om_i
+          write(iunit,*)"O_tc (sandload carried in trough period)",om_iy
+        ENDIF
+        IF(wavecycle.eq.-1.0_r8) THEN 
+          write(iunit,*)"****************************************"
+          write(iunit,*)"Trough cycle"
+          write(iunit,*)"****************************************"
+          write(iunit,*)"Phase lag parameter", P
+          write(iunit,*)"O_tt (sandload entrained and carried)", om_i
+          write(iunit,*)"O_ct (sandload carried in crest period)",om_iy
+        ENDIF
         RETURN 
         END SUBROUTINE sandload_vandera
 !
@@ -519,8 +580,6 @@
           alpha_w=0.424_r8
 !
           tau_wRe=rho0*fwd*alpha_w*uhat**3.0_r8/(2.0_r8*c_w)
-          print*, "------------------------------"
-          print*, "tau_wRe",tau_wRe
 !        
 ! Wave friction factor for wave and crest half cycle VA2013 Eqn. 21
 ! 
@@ -787,7 +846,7 @@
 !
 !  End of functions for step 2 for Shear stress formulation
 !
-        SUBROUTINE skewness_params(H_s, T, depth, r, phi)
+        SUBROUTINE skewness_params(iunit, H_s, T, depth, r, phi)
 !        
 ! Ruessink et al. provides equations for calculating skewness parameters
 ! Uses Malarkey and Davies equations to get "bb" and "r"
@@ -803,6 +862,7 @@
 !
         implicit none 
 !
+        integer, intent(in) :: iunit
         real(r8), intent(in)  :: H_s, T, depth
         real(r8), intent(out) :: r, phi
 !
@@ -852,10 +912,16 @@
           Su=B*cos(psi)
           Au=B*sin(psi)
 
+        write(iunit,*)"****************************************"
+        write(iunit,*)" Reuissink parameters"
+        write(iunit,*) "b=", bb
+        write(iunit,*) "r=",r
+        write(iunit,*) "phi=",phi
+        write(iunit,*)"****************************************"
         RETURN     
         END SUBROUTINE skewness_params
 
-        SUBROUTINE abreu_points(r, phi, Uw, T, DTc, DTt,                &
+        SUBROUTINE abreu_points(iunit, r, phi, Uw, T, DTc, DTt,         &
      &                                 DTcu, DTtu, umax, umin, RR)
 ! 
 !  Calculate umax, umin, and phases of asymmetrical wave orbital velocity 
@@ -871,6 +937,7 @@
 !
         implicit none 
 !
+        integer, intent(in) :: iunit
         real(r8), intent(in)  :: r, phi, Uw, T
         real(r8), intent(out) :: Dtc, DTt, DTcu, DTtu 
         real(r8), intent(out) :: umax, umin, RR
@@ -977,6 +1044,13 @@
         T_c=tmc*w
         T_t=tmt*w
 !
+        write(iunit,*)"****************************************"
+        write(iunit,*)" Abreu outputs"
+        write(iunit,*) "Beta=", beta, "R=",RR
+        write(iunit,*)"Crest cycle 'T_c='", T_c, "T_cu=", T_cu
+        write(iunit,*)"Trough cycle 'T_t='", T_t, "T_tu=", T_tu
+        write(iunit,*)"****************************************"
+        
         RETURN
         END SUBROUTINE abreu_points
 
