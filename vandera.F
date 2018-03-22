@@ -24,7 +24,7 @@
 !
       real(r8) :: eta_c, dsf_c                
       real(r8) :: eta_t, dsf_t               
-      real(r8) :: theta_c, theta_t, tau_wRe 
+      real(r8) :: theta_c, theta_t, tau_wRe_c, tau_wRe_t
       real(r8) :: theta_cx, theta_cy, theta_tx, theta_ty
       real(r8) :: mag_theta_c, mag_theta_t
 !
@@ -167,7 +167,7 @@
      &                                   umag_curr, uhat, uhat_c, ahat, &
      &                                        T_cu, T_c, mag_uc,        &
      &                                        eta_c, dsf_c,             &
-     &                                        mag_theta_c, tau_wRe) 
+     &                                        mag_theta_c, tau_wRe_c) 
 
 !
 !-----------------------------------------------------------------------
@@ -175,14 +175,14 @@
 ! rho0 is required for non-dimensionalizing 
 !-----------------------------------------------------------------------
 !
-      theta_cx=ABS(mag_theta_c)*uc_rx/(mag_uc)+tau_wRe*osmgd/rho0
+      theta_cx=ABS(mag_theta_c)*uc_rx/(mag_uc)+tau_wRe_c*osmgd/rho0
       theta_cy=ABS(mag_theta_c)*uc_ry/(mag_uc)
       mag_theta_c=sqrt(theta_cx*theta_cx+theta_cy*theta_cy)
         
       write(iunit,*)"****************************************"
       write(iunit,*)"2. CREST cycle - Bed shear stress output"
       write(iunit,*)"****************************************"
-      write(iunit,*) "Wave Reynolds Stress tau_wRe", tau_wRe
+      write(iunit,*) "Wave Reynolds Stress tau_wRe", tau_wRe_c
       write(iunit,*) "Shields par. x,y dir", theta_cx, theta_cy
       write(iunit,*) "Magnitude of Shields par.", mag_theta_c
       write(iunit,*) "Ripple height (m)", eta_c
@@ -199,21 +199,21 @@
      &                                   umag_curr, uhat, uhat_t, ahat, &
      &                                        T_tu, T_t, mag_ut,        &
      &                                        eta_t, dsf_t,             &
-     &                                       mag_theta_t, tau_wRe) 
+     &                                       mag_theta_t, tau_wRe_t) 
 !
 !-----------------------------------------------------------------------
 ! Shields parameter in trough cycle
 ! rho0 is required for non-dimensionalizing 
 !-----------------------------------------------------------------------
 !
-      theta_tx=ABS(mag_theta_t)*ut_rx/(mag_ut)+tau_wRe*osmgd/rho0
+      theta_tx=ABS(mag_theta_t)*ut_rx/(mag_ut)+tau_wRe_t*osmgd/rho0
       theta_ty=ABS(mag_theta_t)*ut_ry/(mag_ut)
       mag_theta_t=sqrt(theta_tx*theta_tx+theta_ty*theta_ty)
 !
       write(iunit,*)"****************************************"
       write(iunit,*)"2.TROUGH cycle - Bed shear stress output"
       write(iunit,*)"****************************************"
-      write(iunit,*) "Wave Reynolds Stress tau_wRe",tau_wRe
+      write(iunit,*) "Wave Reynolds Stress tau_wRe",tau_wRe_t
       write(iunit,*) "Shields par. x,y dir", theta_tx, theta_ty
       write(iunit,*) "Magnitude of Shields par.", mag_theta_t
       write(iunit,*) "Ripple height (m)", eta_t
@@ -462,7 +462,8 @@
         real(r8), intent(out):: mag_theta_i, tau_wRe
 !
         integer  :: iter
-        integer, parameter :: total_iters=50
+        integer, parameter :: total_iters=10
+        real, parameter :: tol=0.001_r8
         real(r8) :: mu, mu_calc 
         real(r8) :: theta_timeavg_old, theta_timeavg, theta_hat_i
 
@@ -542,7 +543,7 @@
 !
           theta_hat_i=0.5_r8*fwd_i*uhat_i**2*osmgd
 !
-          IF(ABS(theta_timeavg-theta_timeavg_old).lt.0.001_r8) THEN 
+          IF(ABS(theta_timeavg-theta_timeavg_old).lt.tol) THEN 
             EXIT 
           ENDIF
           theta_timeavg_old=theta_timeavg 
