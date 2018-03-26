@@ -45,8 +45,8 @@
 !      Td=dominant wave period 
 !      depth=water depth(m)
 !   
-       Hs = 2.0_r8
-       Td = 10.0_r8
+       Hs = 0.5_r8
+       Td = 7.0_r8
        depth =  10.0_r8
        d50 = 0.15e-3
        d90 = 1.5_r8*d50 
@@ -111,7 +111,7 @@
 ! from Abreu points 
 !
        uhat_c=umax
-       uhat_t=-umin 
+       uhat_t=umin 
 !
 !-----------------------------------------------------------------------
 ! VA2013 Equation 10, 11
@@ -893,6 +893,7 @@
 !          H_s=sqrt(2.0_r8)*H_rms
           a_w=0.5_r8*H_s 
           Ur=0.75_r8*a_w*k/((k*depth)**3.0_r8)
+          print*, "Ur",Ur
 !
 ! Ruessink et al., 2012 Equation 9.
 !
@@ -1043,10 +1044,10 @@
         DTcu=(tmc-tzu)*w
         DTtu=(tmt-tzd)*w
 !
-        T_tu=tzd*w
-        T_cu=tzu*w
-        T_c=tmc*w
-        T_t=tmt*w
+        T_tu=DTtu
+        T_cu=DTcu
+        T_c=DTc
+        T_t=DTt
 !
         write(iunit,*)"****************************************"
         write(iunit,*)" Abreu outputs"
