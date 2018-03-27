@@ -45,9 +45,9 @@
 !      Td=dominant wave period 
 !      depth=water depth(m)
 !   
-       Hs = 0.5_r8
-       Td = 7.0_r8
-       depth =  10.0_r8
+       Hs = 2.0_r8
+       Td = 15.0_r8
+       depth =  1.0_r8
        d50 = 0.15e-3
        d90 = 1.5_r8*d50 
        rhos= 2650.0_r8
@@ -1017,7 +1017,7 @@
 !
         IF(r.ge.0.0_r8.and.r.lt.0.5)THEN
           betar_0=0.5_r8*(1.0_r8+r)
-        ELSEIF(r.gt.0.5_r8.and.r.lt.0.5_r8)THEN
+        ELSEIF(r.gt.0.5_r8.and.r.lt.1.0_r8)THEN
           cff1=4.0_r8*r*(1.0_r8+r)
           cff2=cff1+1.0_r8
           betar_0=cff1/cff2
