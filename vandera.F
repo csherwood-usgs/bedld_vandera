@@ -46,8 +46,8 @@
 !      depth=water depth(m)
 !   
        Hs = 2.0_r8
-       Td = 15.0_r8
-       depth =  1.0_r8
+       Td = 5.0_r8
+       depth =10.0_r8
        d50 = 0.15e-3
        d90 = 1.5_r8*d50 
        rhos= 2650.0_r8
@@ -55,17 +55,16 @@
 ! umag_curr is the current velocity magnitude (MAKE Sure its the magnitude)
 ! direction of currents is counter-clockwise from wave direction
 !
-       umag_curr=ABS(0.5_r8)
+       umag_curr=0.0! ABS(0.5_r8)
        phi_curwave=45.0_r8*deg2rad
 !
 ! uhat and ahat for the entire wave cycle  uhat is the wave orbital velocity defiend for the entire wave cycle
 !
-       uhat=0.5472_r8           
+       uhat=1.02!0.5472_r8           
 !
        ahat=uhat*Td/(2.0_r8*pi)
        k=kh(Td,depth)/depth     ! Wave number 
        c_w=2*pi/(k*Td)          ! Wave speed
-
 ! 
 ! Open the file to write code output
 !
@@ -85,7 +84,7 @@
 !
 ! VA-2013 equation 1 is solved in 3 sub-steps
 !
-!-----------------------------------------------------------------------
+!----------------------------------------------------------------------
 ! Ruessink et al. provides equations for calculating skewness parameters
 ! Uses Malarkey and Davies equations to get "bb" and "r"
 ! COMMON TO both crest and trough
@@ -111,7 +110,7 @@
 ! from Abreu points 
 !
        uhat_c=umax
-       uhat_t=umin 
+       uhat_t=-umin 
 !
 !-----------------------------------------------------------------------
 ! VA2013 Equation 10, 11
@@ -138,6 +137,7 @@
 ! Need to check velocity skewnes parameter
 !
        Rcheck = uhat_c/(uhat_c+uhat_t)
+      print*, "Rcheck",Rcheck
 !
 !------------------------------------------------------------------------
 ! Writing out the output from this file
@@ -219,6 +219,7 @@
       write(iunit,*) "Ripple height (m)", eta_t
       write(iunit,*) "Sheet flow thickness (m)", dsf_t
       write(iunit,*)"****************************************"
+      print*, "theta_c/theta_t",mag_theta_c/mag_theta_t
 !
 !-----------------------------------------------------------------------
 ! 3. Compute sediment load entrained during each crest half cycle
@@ -260,13 +261,13 @@
 !
         cff3=theta_cx/mag_theta_c
         bedld_cx=cff2*cff3
-!
+
         cff3=theta_cy/mag_theta_c
         bedld_cy=cff2*cff3
- 
+
         cff1=0.5_r8*T_t/(T_tu)
         cff2=sqrt(mag_theta_t)*T_t*(om_tt+cff1*om_ct)
-
+        
         cff3=theta_tx/mag_theta_t      
         bedld_tx=cff2*cff3
 !
@@ -277,8 +278,9 @@
 ! bed_frac, rhos multiplied 
 !
         bed_frac=1.0_r8
-        bedld_x=bed_frac*rhos*smgd_3*(bedld_cx+bedld_tx)/Td 
-        bedld_y=bed_frac*rhos*smgd_3*(bedld_cy+bedld_ty)/Td 
+
+        bedld_x=bed_frac*smgd_3*(bedld_cx+bedld_tx)/Td 
+        bedld_y=bed_frac*smgd_3*(bedld_cy+bedld_ty)/Td 
 !
         write(iunit,*)"****************************************"
         write(iunit,*)"Net transport rate in x dir.", bedld_x
@@ -340,16 +342,19 @@
 ! VA2013 Equation 30, for trough cycle
 !
         IF(wavecycle.eq.-1.0_r8) THEN 
-          w_sc_eta=MAX(w_s-ws_eta,0.0_r8)
-          w_sc_dsf=MAX(w_s-ws_dsf,0.0_r8)
+          w_sc_eta=MAX(w_s-ws_eta,0.36*w_s)
+          w_sc_dsf=MAX(w_s-ws_dsf,0.36*w_s)
+!          w_sc_eta=MIN(w_s-ws_eta,0.0_r8)
+!          w_sc_dsf=MIN(w_s-ws_dsf,0.0_r8)
         ENDIF 
 !
 ! VA2013 Equation 33, Phase lag parameter
 !
-          
-        cff=(1.0_r8-wavecycle*xi*uhat_i)/c_w
+        cff=1.0_r8-(wavecycle*xi*uhat_i/c_w)
+!
         cff1_eta=(1.0_r8/(2.0_r8*(T_i-T_iu)*w_sc_eta))
         cff1_dsf=(1.0_r8/(2.0_r8*(T_i-T_iu)*w_sc_dsf))
+        
 !        cff1_eta=(1.0_r8/(2.0_r8*(T_iu)*w_sc_eta))
 !        cff1_dsf=(1.0_r8/(2.0_r8*(T_iu)*w_sc_dsf))
 !
@@ -377,7 +382,7 @@
 !
 ! VA2013 Equation 23-26, Sandload entrained during half cycle 
 ! 
-       
+              
         IF(P.le.1.0_r8) THEN 
           om_ii=om_i
           om_iy=0.0_r8
@@ -394,7 +399,7 @@
           write(iunit,*)"Crest cycle"
           write(iunit,*)"****************************************"
           write(iunit,*)"Phase lag parameter", P
-          write(iunit,*)"O_cc (sandload entrained and carried)", om_i
+          write(iunit,*)"O_cc (sandload entrained and carried)", om_ii
           write(iunit,*)"O_tc (sandload carried in trough period)",om_iy
         ENDIF
         IF(wavecycle.eq.-1.0_r8) THEN 
@@ -402,7 +407,7 @@
           write(iunit,*)"Trough cycle"
           write(iunit,*)"****************************************"
           write(iunit,*)"Phase lag parameter", P
-          write(iunit,*)"O_tt (sandload entrained and carried)", om_i
+          write(iunit,*)"O_tt (sandload entrained and carried)", om_ii
           write(iunit,*)"O_ct (sandload carried in crest period)",om_iy
         ENDIF
         RETURN 
@@ -510,7 +515,7 @@
 ! Calculate current-related bed roughness from VA2013 Appendix A.1
 !
           ksd=ksd_calc(d50, d90, mu_calc(d50), theta_timeavg,           &
-     &                                                  eta, lambda)    
+     &                                                  eta, lambda)  
 !
 ! Calculate full-cycle current friction factor from VA2013 Eqn. 20
 ! 
@@ -595,9 +600,9 @@
           fwd_i=alpha*fd+(1.0_r8-alpha)*fw_i
 !
 ! VA2013-Magnitude of Shields parameter Eqn. 17
-!
+! 
           mag_theta_i=0.5_r8*fwd_i*mag_ui**2*osmgd
-        
+ 
         END SUBROUTINE stress_progressive_surface_waves 
 !
         SUBROUTINE ripple_dim(psi, d50, eta, lambda)
@@ -640,6 +645,7 @@
         ENDIF
         n_lambda=n_eta
 !
+        print*,"psi,", psi, "n_eta",n_eta
         eta=MAX(0.0_r8,m_eta*n_eta*(0.275_r8-0.022*psi**0.42_r8))
         lambda=MAX(0.0_r8,m_lambda*n_lambda*                            &
      &                             (1.97_r8-0.44_r8*psi**0.21_r8))
@@ -730,7 +736,7 @@
         real(r8) :: d50, d90, mu, theta_timeavg, eta, lambda
         real(r8) :: ripple_fac
 !
-        eta=MAX(eta,d50)
+!        eta=MAX(eta,d50)
         lambda=MAX(lambda,d50)
         ripple_fac=0.4_r8*eta**2.0_r8/lambda
         ksd_calc=MAX( 3.0_r8*d90,                                       &
@@ -751,7 +757,7 @@
         real(r8) :: d50, mu, theta_timeavg, eta, lambda
         real(r8) :: ripple_fac, ksw
 !
-        eta=MAX(eta,d50)
+!        eta=MAX(eta,d50)
         lambda=MAX(lambda,d50)
         ripple_fac=0.4_r8*eta**2.0_r8/lambda
         ksw_calc=MAX( d50,                                              &
@@ -949,7 +955,7 @@
 !
 ! Local variables 
 ! 
-        real(r8) :: b, c, tmt, tmc, tzd, tzu
+        real(r8) :: b, c, ratio, tmt, tmc, tzd, tzu
         real(r8) :: omega, w, phi_new 
         real(r8) :: P, F0, betar_0, beta
         real(r8) :: T_tu, T_cu, T_c, T_t 
@@ -961,7 +967,7 @@
         phi_new=-phi
 
 ! Malarkey and Davies (Under equation 16b) 
-        P=sqrt(1.0_r8-r*r)
+        P=SQRT(1.0_r8-r*r)
 !
 ! Malarkey and Davies (Under equation 16b) 
 !
@@ -969,22 +975,40 @@
 !
 ! Appendix E of Malarkey and Davies 
 !
-        c=b*sin(phi_new)
+        c=b*SIN(phi_new)
 !
         cff1=4.0_r8*c*(b*b-c*c)+(1.0_r8-b*b)*(1.0_r8+b*b-2.0_r8*c*c)
         cff2=(1.0_r8+b*b)**2.0_r8-4.0_r8*c*c
-        tmc=ASIN(cff1/cff2)
+        ratio=cff1/cff2
+!
+! These if conditionals prevent ASIN to be between [-1,1] and prevent NaNs
+! Not a problem in the MATLAB code
+!
+        IF(ratio.gt.1.0_r8)THEN 
+          ratio=1.0_r8
+        ENDIF
+        IF(ratio.lt.-1.0_r8)THEN
+          ratio=-1.0_r8
+        ENDIF 
+        tmc=ASIN(ratio)
 !
         cff1=4.0_r8*c*(b*b-c*c)-(1.0_r8-b*b)*(1.0_r8+b*b-2.0_r8*c*c)
         cff2=(1.0_r8+b*b)**2.0_r8-4.0_r8*c*c
-        tmt=ASIN(cff1/cff2)
-!         
-        IF(tmt.lt.0.0_r8) THEN 
-          tmt=tmt+2.0_r8*pi
+        ratio=cff1/cff2
+        IF(ratio.gt.1.0_r8)THEN 
+          ratio=1.0_r8
+        ENDIF
+        IF(ratio.lt.-1.0_r8)THEN
+          ratio=-1.0_r8
         ENDIF 
+        tmt=ASIN(ratio)
+!         
         IF(tmc.lt.0.0_r8) THEN 
           tmc=tmc+2.0_r8*pi
         ENDIF
+        IF(tmt.lt.0.0_r8) THEN 
+          tmt=tmt+2.0_r8*pi
+        ENDIF 
 ! 
 ! Non dimensional umax and umin, under E5 in Malarkey and Davies 
 ! 
@@ -1025,15 +1049,15 @@
 !
 ! MD, Equation 18
 !
-        cff=sin((0.5_r8*pi-ABS(phi_new))*F0)/sin(0.5_r8*pi*F0)
+        cff=SIN((0.5_r8*pi-ABS(phi_new))*F0)/SIN(0.5_r8*pi*F0)
         beta=0.5_r8+(betar_0-0.5_r8)*cff
 !
 ! MD, Table 1, get asymmetry parameterization
 ! using GSSO (10a,b)
 !
-        cff=sqrt(2.0_r8*(1.0_r8+b*b)**3.0_r8)
-        Sk=3.0_r8*sin(phi_new)/cff
-        Ak=-3.0_r8*cos(phi_new)/cff
+        cff=SQRT(2.0_r8*(1.0_r8+b*b)**3.0_r8)
+        Sk=3.0_r8*SIN(phi_new)/cff
+        Ak=-3.0_r8*COS(phi_new)/cff
 !
 ! These are the dimensional fractions of wave periods needed by Van der A eqn.
 ! TSK - Check source of these equations 
@@ -1044,6 +1068,7 @@
         DTcu=(tmc-tzu)*w
         DTtu=(tmt-tzd)*w
 !
+        print*,"tmc",tmc,"tzu",tzu
         T_tu=DTtu
         T_cu=DTcu
         T_c=DTc
@@ -1062,7 +1087,7 @@
         REAL(r8) FUNCTION kh(Td,depth)
 !
 !  Calculate wave number from Wave period and depth 
-!
+
 ! RL Soulsby (2006) "Simplified calculation of wave orbital velocities"
 ! HR Wallingford Report TR 155, February 2006
 !
