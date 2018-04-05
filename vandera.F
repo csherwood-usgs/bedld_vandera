@@ -7,7 +7,7 @@
 
       integer  :: iunit
       real(r8) :: Hs, Td, depth, d50, d90
-      real(r8) :: umag_curr, phi_curwave 
+      real(r8) :: urms, umag_curr, phi_curwave 
       real(r8) :: y, kh, uhat, ahat 
       real(r8) :: k, c_w
       real(r8) :: smgd, osmgd
@@ -45,10 +45,10 @@
 !      Td=dominant wave period 
 !      depth=water depth(m)
 !   
-       Hs = 2.0_r8
-       Td = 5.0_r8
-       depth =10.0_r8
-       d50 = 0.15e-3
+       Hs = 0.1_r8
+       Td = 6.5_r8
+       depth =3.5_r8
+       d50 = 0.13e-3
        d90 = 1.5_r8*d50 
        rhos= 2650.0_r8
 !
@@ -60,7 +60,8 @@
 !
 ! uhat and ahat for the entire wave cycle  uhat is the wave orbital velocity defiend for the entire wave cycle
 !
-       uhat=1.02!0.5472_r8           
+       urms=0.2_r8 
+       uhat=SQRT(2.0_r8)*urms !0.5472_r8           
 !
        ahat=uhat*Td/(2.0_r8*pi)
        k=kh(Td,depth)/depth     ! Wave number 
@@ -318,7 +319,7 @@
         real(r8), parameter :: xi=1.7_r8 ! Based on Santoss_core.m
         real(r8) :: eps_eff
         real(r8) :: om_i
-        real(r8) :: theta_ieff, theta_cr, theta_cr_calc 
+        real(r8) :: theta_diff, theta_ieff, theta_cr, theta_cr_calc 
         real(r8) :: w_s, w_s_calc
         real(r8) :: ws_eta, ws_dsf, w_sc_calc
         real(r8) :: w_sc_eta, w_sc_dsf
@@ -362,11 +363,21 @@
 !
         IF(eta.gt.0.0_r8) THEN 
           P=alpha*eta*cff*cff1_eta
+          IF(wavecycle.eq.1.0_r8) THEN
+           print*, "Ripple regime during crest"
+          ELSE
+           print*, "ripple flow regime during trough"
+          ENDIF 
         ELSEIF(eta.eq.0.0_r8)THEN
 !
 ! For sheet flow regime 
 !
           P=alpha*dsf*cff*cff1_dsf
+          IF(wavecycle.eq.-1.0_r8) THEN
+           print*, "Sheet flow regime during crest"
+          ELSE
+           print*, "sheet flow regime during trough"
+          ENDIF 
         ENDIF 
 !
         eps_eff=(dsf/d50)**0.25_r8 
@@ -378,7 +389,9 @@
 !
 ! Sand load entrained in the flow during each half-cycle
 !
-        om_i=MAX(m*(theta_ieff-theta_cr)**n,0.0_r8)
+        theta_diff=MAX((theta_ieff-theta_cr),0.0_r8)
+        om_i=m*(theta_diff)**n
+        print*,om_i
 !
 ! VA2013 Equation 23-26, Sandload entrained during half cycle 
 ! 
@@ -645,7 +658,6 @@
         ENDIF
         n_lambda=n_eta
 !
-        print*,"psi,", psi, "n_eta",n_eta
         eta=MAX(0.0_r8,m_eta*n_eta*(0.275_r8-0.022*psi**0.42_r8))
         lambda=MAX(0.0_r8,m_lambda*n_lambda*                            &
      &                             (1.97_r8-0.44_r8*psi**0.21_r8))
@@ -1068,7 +1080,6 @@
         DTcu=(tmc-tzu)*w
         DTtu=(tmt-tzd)*w
 !
-        print*,"tmc",tmc,"tzu",tzu
         T_tu=DTtu
         T_cu=DTcu
         T_c=DTc
